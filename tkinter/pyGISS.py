@@ -25,6 +25,10 @@ class Map(tk.Canvas):
         menu = tk.Menu(root)
         menu.add_command(label="Import shapefile", command=self.import_map)
         menu.add_command(label="Switch projection", command=self.switch_proj)
+        menu.add_command(label="test linestring", command=self.import_geodata)
+        menu.add_command(label="test points", command=self.import_geopoints)
+
+
         root.config(menu=menu)
         self.pack(fill='both', expand=1)
 
@@ -39,8 +43,39 @@ class Map(tk.Canvas):
     def import_map(self):
         self.filepath, = filedialog.askopenfilenames(title='Import shapefile')
         self.draw_map()
+        #self.create_line(10,10,20,20)
+    def import_geodata(self):
+        self.filepath, = filedialog.askopenfilenames(title='Import shapefile')
+        self.draw_rivers()
+    def import_geopoints(self):
+        self.filepath, = filedialog.askopenfilenames(title='Import shapefile')
+        self.draw_cities()
+
+
+    def draw_cities(self):
+        self.delete('city')
+        sf = shapefile.Reader(self.filepath)
+        points = sf.shapes()
+        for point in points:
+            point = shapely.geometry.shape(point)
+            if point.geom_type == 'Point':
+                point = [point]
+
+            for city in point:
+                x1 = self.to_canvas_coordinates(city.coords.xy[0][0], city.coords.xy[1][0])[0] +2
+                y1 = self.to_canvas_coordinates(city.coords.xy[0][0], city.coords.xy[1][0])[1] +2
+                x2 = self.to_canvas_coordinates(city.coords.xy[0][0], city.coords.xy[1][0])[0] -2
+                y2 = self.to_canvas_coordinates(city.coords.xy[0][0], city.coords.xy[1][0])[1] -2
+
+
+                self.create_oval(x1,y1,x2,y2,
+                    fill='black',
+                    outline='black',
+                    tags=('city',)
+                    )
 
     def draw_map(self):
+       
         self.delete('land', 'water')
         self.draw_water()
         sf = shapefile.Reader(self.filepath)
@@ -58,7 +93,52 @@ class Map(tk.Canvas):
                     outline='black',
                     tags=('land',)
                 )
+           
+    # ab hier neuer code
+    def draw_rivers(self):
 
+         self.delete('river')
+         sf = shapefile.Reader(self.filepath)
+         polylines = sf.shapes()
+         i=0
+         
+         for polyline in polylines:
+            i= i+1
+           
+            try:
+                polyline = shapely.geometry.shape(polyline)
+            except:
+                print("Fehler: ein Fluss konnte nicht geladen werden",i)
+                continue
+                
+            #print(polyline.geom_type)    
+            if polyline.geom_type == "LineString":
+                
+                polyline = [polyline]
+                for river in polyline:
+                    self.create_line(
+                        sum((self.to_canvas_coordinates(*c) for c in river.coords), ()),
+                        fill='blue3',
+                        #outline='black',
+                        tags=('river',)                        
+                    )
+                    #print(i)
+            elif polyline.geom_type == "MultiLineString":
+                print("multilinestring")
+                mls = [polyline]
+                for mlsriver in mls:
+                    for mlsline in mlsriver:
+                        self.create_line(
+                            sum((self.to_canvas_coordinates(*c) for c in mlsline.coords), ()),
+                            fill='red',
+                            #outline='black',
+                            tags=('river',)                        
+                        )
+
+
+
+
+            
     def draw_water(self):
         if self.proj == 'mercator':
             x0, y0 = self.to_canvas_coordinates(-180, 84)
